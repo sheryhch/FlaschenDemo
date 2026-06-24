@@ -1,4 +1,4 @@
-name: Owner Codexbot Issue Command
+name: Owner Codexbot Command
 
 on:
   issue_comment:
@@ -6,46 +6,114 @@ on:
       - created
 
 permissions:
-  contents: read
+  contents: write
   issues: write
+  pull-requests: write
 
 jobs:
   handle-codexbot-command:
-    name: Handle @codexbot issue command
+    name: Handle @codexbot command
     runs-on: ubuntu-latest
-    if: >
-      github.event.comment.user.login == 'sheryhch' &&
-      !github.event.issue.pull_request
+    if: github.event.comment.user.login == 'sheryhch'
 
     steps:
-      - name: Close issue when owner asks Codexbot to solve it
+      - name: Parse command
+        id: command
         uses: actions/github-script@v7
         with:
           script: |
-            const owner = context.repo.owner;
-            const repo = context.repo.repo;
-            const issue_number = context.issue.number;
             const body = context.payload.comment.body.toLowerCase();
-
             const hasCodexbotMention = body.includes('@codexbot');
-            const hasSolveCommand = body.includes('solve this issue') || body.includes('solve issue') || body.includes('solve this') || body.includes('/solve');
+            const hasSolveCommand =
+              body.includes('solve this issue') ||
+              body.includes('solve issue') ||
+              body.includes('solve this') ||
+              body.includes('solve it') ||
+              body.includes('/solve');
 
             if (!hasCodexbotMention || !hasSolveCommand) {
               core.info('No supported @codexbot solve command found. Skipping.');
+              core.setOutput('should_run', 'false');
               return;
             }
 
+            core.setOutput('should_run', 'true');
+            core.setOutput('is_pr', context.payload.issue.pull_request ? 'true' : 'false');
+
+            if (context.payload.issue.pull_request) {
+              const { data: pullRequest } = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+              });
+
+              core.setOutput('head_ref', pullRequest.head.ref);
+              core.setOutput('head_repo', pullRequest.head.repo.full_name);
+            }
+
+      - name: Comment command received
+        if: steps.command.outputs.should_run == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
             await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number,
-              body: 'Owner command received: `@codexbot solve this issue`. Closing this issue as completed.'
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Owner command received: `@codexbot solve`. I will try safe automated fixes for this thread.'
+            });
+
+      - name: Checkout PR branch
+        if: steps.command.outputs.should_run == 'true' && steps.command.outputs.is_pr == 'true' && steps.command.outputs.head_repo == github.repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.command.outputs.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup .NET for PR fix
+        if: steps.command.outputs.should_run == 'true' && steps.command.outputs.is_pr == 'true' && steps.command.outputs.head_repo == github.repository
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Run safe PR auto-format fix
+        if: steps.command.outputs.should_run == 'true' && steps.command.outputs.is_pr == 'true' && steps.command.outputs.head_repo == github.repository
+        shell: bash
+        run: |
+          dotnet restore FlaschenDemo.sln /p:CheckEolTargetFramework=false
+          dotnet format FlaschenDemo.sln --verbosity diagnostic
+
+      - name: Commit safe PR fixes
+        if: steps.command.outputs.should_run == 'true' && steps.command.outputs.is_pr == 'true' && steps.command.outputs.head_repo == github.repository
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            echo "No safe automated changes were needed."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "Apply codexbot safe formatting fixes"
+          git push
+
+      - name: Close issue when requested
+        if: steps.command.outputs.should_run == 'true' && steps.command.outputs.is_pr == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: 'Owner command received: `@codexbot solve`. Closing this issue as completed.'
             });
 
             await github.rest.issues.update({
-              owner,
-              repo,
-              issue_number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
               state: 'closed',
               state_reason: 'completed'
             });
