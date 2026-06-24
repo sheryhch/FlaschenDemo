@@ -1,9 +1,10 @@
 # FlaschenDemo
-This is a Demo code. .
-contain 3 project : FlaschenDemo.Api , FlaschenDemo.IOC , FlaschenDemo.Core. 
-main project is FlaschenDemo.Api. 
 
-for test api please use this link as data :  
-https://flapotest.blob.core.windows.net/test/ProductData.json 
+This is a demo code.
 
+Contains 3 projects: FlaschenDemo.Api, FlaschenDemo.IOC, FlaschenDemo.Core.
 
+Main project is FlaschenDemo.Api.
+
+For testing the API, use this data link:
+https://flapotest.blob.core.windows.net/test/ProductData.json
