@@ -1,0 +1,40 @@
+name: PR Checks
+
+on:
+  pull_request:
+    branches:
+      - master
+  push:
+    branches:
+      - master
+      - openaitestB
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  dotnet-checks:
+    name: .NET restore, build, format, and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 6.0.x
+
+      - name: Restore
+        run: dotnet restore FlaschenDemo.sln
+
+      - name: Build
+        run: dotnet build FlaschenDemo.sln --configuration Release --no-restore -warnaserror
+
+      - name: Verify formatting
+        run: dotnet format FlaschenDemo.sln --verify-no-changes --verbosity diagnostic
+
+      - name: Test
+        run: dotnet test FlaschenDemo.sln --configuration Release --no-build --verbosity normal
