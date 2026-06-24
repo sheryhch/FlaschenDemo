@@ -1,0 +1,51 @@
+name: Owner Codex Issue Command
+
+on:
+  issue_comment:
+    types:
+      - created
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  handle-codex-command:
+    name: Handle @codex issue command
+    runs-on: ubuntu-latest
+    if: >
+      github.event.comment.user.login == 'sheryhch' &&
+      !github.event.issue.pull_request
+
+    steps:
+      - name: Close issue when owner asks Codex to solve it
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+            const body = context.payload.comment.body.toLowerCase();
+
+            const hasCodexMention = body.includes('@codex');
+            const hasSolveCommand = body.includes('solve this issue') || body.includes('solve issue') || body.includes('/solve');
+
+            if (!hasCodexMention || !hasSolveCommand) {
+              core.info('No supported @codex solve command found. Skipping.');
+              return;
+            }
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number,
+              body: 'Owner command received: `@codex solve this issue`. Closing this issue as completed.'
+            });
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number,
+              state: 'closed',
+              state_reason: 'completed'
+            });
