@@ -1,5 +1,5 @@
 # FlaschenDemo
-This is a Demo code. 
+This is a Demo code. .
 contain 3 project : FlaschenDemo.Api , FlaschenDemo.IOC , FlaschenDemo.Core. 
 main project is FlaschenDemo.Api. 
 
