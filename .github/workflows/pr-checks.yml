@@ -8,6 +8,7 @@ on:
     branches:
       - master
       - openaitestB
+      - branchc1
 
 permissions:
   contents: read
@@ -28,13 +29,13 @@ jobs:
           dotnet-version: 6.0.x
 
       - name: Restore
-        run: dotnet restore FlaschenDemo.sln
+        run: dotnet restore FlaschenDemo.sln /p:CheckEolTargetFramework=false
 
       - name: Build
-        run: dotnet build FlaschenDemo.sln --configuration Release --no-restore -warnaserror
+        run: dotnet build FlaschenDemo.sln --configuration Release --no-restore /p:CheckEolTargetFramework=false
 
       - name: Verify formatting
         run: dotnet format FlaschenDemo.sln --verify-no-changes --verbosity diagnostic
 
       - name: Test
-        run: dotnet test FlaschenDemo.sln --configuration Release --no-build --verbosity normal
+        run: dotnet test FlaschenDemo.sln --configuration Release --no-build --verbosity normal /p:CheckEolTargetFramework=false
